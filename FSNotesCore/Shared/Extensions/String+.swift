@@ -54,6 +54,22 @@ public extension String {
         
         return self
     }
+    
+    public func findTags() -> [String]? {
+        let string = self as NSString
+        return self.matches(rule: "[#]\\w\\S*\\b")?.map {
+            string.substring(with: $0.range).replacingOccurrences(of: "#", with: "")
+        }
+    }
+    
+    func matches(rule: String) -> [NSTextCheckingResult]? {
+        
+        let string = self as NSString
+        let regex = try? NSRegularExpression(pattern: rule, options: .caseInsensitive)
+        let matches = regex?.matches(in: self, options: [], range: NSRange(location: 0, length: string.length))
+        
+        return matches
+    }
 }
 
 extension StringProtocol where Index == String.Index {

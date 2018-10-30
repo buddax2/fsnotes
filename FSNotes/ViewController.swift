@@ -991,6 +991,40 @@ class ViewController: NSViewController,
 
     private var selectRowTimer = Timer()
 
+    func filterNotesWithTags(_ tags: [String]) {
+        let timestamp = Date().toMillis()
+        
+        self.search.timestamp = timestamp
+        self.searchQueue.cancelAllOperations()
+
+        let operation = BlockOperation()
+        operation.addExecutionBlock {
+        
+            let source = self.storage.noteList
+
+            let findListSet = Set<String>(tags)
+            
+            let filteredNotes = source.filter { note in
+                let list = Set<String>(note.tagNames)
+                return findListSet.isSubset(of: list)
+            }
+            
+            self.filteredNoteList = filteredNotes
+            self.notesTableView.noteList = filteredNotes
+            
+            if operation.isCancelled {
+                return
+            }
+            
+            DispatchQueue.main.async {
+                self.notesTableView.reloadData()
+                self.editArea.clear()
+            }
+
+        }
+        self.searchQueue.addOperation(operation)
+    }
+    
     func updateTable(search: Bool = false, searchText: String? = nil, sidebarItem: SidebarItem? = nil, completion: @escaping () -> Void = {}) {
         let timestamp = Date().toMillis()
 

@@ -110,6 +110,11 @@ class SearchTextField: NSSearchField, NSSearchFieldDelegate {
         let currentTextLength = searchText.count
         let sidebarItem = self.vcDelegate.getSidebarItem()
 
+        if let tags = searchText.findTags(), tags.count > 0 {
+            self.vcDelegate.filterNotesWithTags(tags)
+            return
+        }
+        
         if currentTextLength > self.lastQueryLength {
             self.skipAutocomplete = false
         }
