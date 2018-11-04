@@ -930,6 +930,8 @@ public class NotesTextProcessor {
     /// this constant determines how "wide" those tabs become in spaces
     public static let _tabWidth = 4
     
+    public static let tagRegex = MarklightRegex(pattern: "[#](\\w\\S*\\b)")
+    
     // MARK: Headers
     
     /*
@@ -1590,4 +1592,17 @@ public struct MarklightRegex {
                                             completion(result)
         })
     }
+    
+    public func matches(input: String, range: NSRange) -> [String]? {
+        
+        let options = NSRegularExpression.MatchingOptions(rawValue: 0)
+        let matches = regularExpression.matches(in: input, options: options, range: range)
+        let content = input as NSString
+        let result = matches.map { match in
+            return content.substring(with: match.range(at: 1))
+        }
+        
+        return result
+    }
+
 }

@@ -997,12 +997,18 @@ class ViewController: NSViewController,
         self.search.timestamp = timestamp
         self.searchQueue.cancelAllOperations()
 
+        var tags = [String]()
+
+        if let content = searchText, content.isEmpty == false {
+            let stringContent = content as NSString
+            if let matchedTags = NotesTextProcessor.tagRegex.matches(input: content, range: stringContent.range(of: content)) {
+                tags = matchedTags
+            }
+        }
         var sidebarItem = sidebarItem
         if searchText == nil {
             sidebarItem = self.getSidebarItem()
         }
-
-        let type = sidebarItem?.type
 
         var filter = searchText ?? self.search.stringValue
         let originalFilter = searchText ?? self.search.stringValue
@@ -1015,17 +1021,28 @@ class ViewController: NSViewController,
             let source = self.storage.noteList
             var notes = [Note]()
             
-            if let type = type, type == .Todo {
-                terms.append("- [ ]")
-            }
-            
-            for note in source {
-                if operation.isCancelled {
-                    break
+            if tags.isEmpty == false {
+                let findListSet = Set<String>(tags)
+                
+                let filteredNotes = source.filter { note in
+                    let list = Set<String>(note.tagNames)
+                    return findListSet.isSubset(of: list)
                 }
-
-                if (self.isFit(note: note, sidebarItem: sidebarItem, filter: filter, terms: terms)) {
-                    notes.append(note)
+                notes = filteredNotes
+            }
+            else {
+                if let type = sidebarItem?.type, type == .Todo {
+                    terms.append("- [ ]")
+                }
+                
+                for note in source {
+                    if operation.isCancelled {
+                        break
+                    }
+                    
+                    if (self.isFit(note: note, sidebarItem: sidebarItem, filter: filter, terms: terms)) {
+                        notes.append(note)
+                    }
                 }
             }
 
@@ -1037,43 +1054,48 @@ class ViewController: NSViewController,
                 return
             }
             
-            guard self.notesTableView.noteList.count > 0 else {
-                DispatchQueue.main.async {
-                    self.editArea.clear()
-                    self.notesTableView.reloadData()
-                    completion()
-                }
-                return
-            }
-
-            let note = self.notesTableView.noteList[0]
-
-            DispatchQueue.main.async {
-                self.notesTableView.reloadData()
-
-                if search {
-                    if (self.notesTableView.noteList.count > 0) {
-                        if !self.search.skipAutocomplete && self.search.timestamp == timestamp {
-                            self.search.suggestAutocomplete(note, filter: originalFilter)
-                        }
-
-                        if filter.count > 0 && (UserDefaultsManagement.textMatchAutoSelection || note.title.lowercased() == self.search.stringValue.lowercased()) {
-                            self.selectNullTableRow(timer: true)
-                        } else {
-                            self.editArea.clear()
-                        }
-                    } else {
-                        self.editArea.clear()
-                    }
-                }
-
-                completion()
-            }
+            self.selectFirstMatchedNote(search: search, originalFilter: originalFilter, filter: filter)
         }
         
         self.searchQueue.addOperation(operation)
     }
 
+    private func selectFirstMatchedNote(search: Bool, originalFilter: String, filter: String, completion: @escaping () -> Void = {}) {
+        
+        guard self.notesTableView.noteList.count > 0 else {
+            DispatchQueue.main.async {
+                self.editArea.clear()
+                self.notesTableView.reloadData()
+                completion()
+            }
+            return
+        }
+        
+        let note = self.notesTableView.noteList[0]
+        
+        DispatchQueue.main.async {
+            self.notesTableView.reloadData()
+            
+            if search {
+                if (self.notesTableView.noteList.count > 0) {
+                    if !self.search.skipAutocomplete {
+                        self.search.suggestAutocomplete(note, filter: originalFilter)
+                    }
+                    
+                    if filter.count > 0 && (UserDefaultsManagement.textMatchAutoSelection || note.title.lowercased() == self.search.stringValue.lowercased()) {
+                        self.selectNullTableRow(timer: true)
+                    } else {
+                        self.editArea.clear()
+                    }
+                } else {
+                    self.editArea.clear()
+                }
+            }
+            
+            completion()
+        }
+    }
+    
     private func isMatched(note: Note, terms: [Substring]) -> Bool {
         for term in terms {
             if note.name.range(of: term, options: .caseInsensitive, range: nil, locale: nil) != nil || note.content.string.range(of: term, options: .caseInsensitive, range: nil, locale: nil) != nil {
